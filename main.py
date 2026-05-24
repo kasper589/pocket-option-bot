@@ -5,13 +5,13 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import CommandStart
 
 BOT_TOKEN = "8800349563:AAExIc3e-ecukrbn07akiVBx69sZkNrdIxE"
-SECRET_PASSWORD = "KASPER404" # Parolni shu yerdan o'zgartirishingiz mumkin
+SECRET_PASSWORD = "KASPER404"
 AUTHORIZED_USERS = set()
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# --- 5 TA INDIKATORLI ANALIZ ---
+# --- ANALIZ FUNKSIYASI ---
 def analyze_market(c, h, l):
     rsi = 100 - (100 / (1 + (sum([max(0, c[i]-c[i-1]) for i in range(1, 14)]) / (sum([max(0, c[i-1]-c[i]) for i in range(1, 14)]) + 0.001))))
     ema12 = sum(c[-12:]) / 12
@@ -25,35 +25,31 @@ def analyze_market(c, h, l):
     if stoch < 20: score += 1
     if c[-1] < bollinger_mid: score += 1
     
-    signal = "🟢 BUY (SOTIB OLISH)" if score >= 2 else "🔴 SELL (SOTISH)"
+    signal = "🟢 BUY" if score >= 2 else "🔴 SELL"
     return signal, rsi, stoch
 
-# --- BOT BUYRUQLARI ---
 @dp.message(CommandStart())
 async def start(message: Message):
-    await message.answer("🔒 Tizim himoyalangan. Parolni kiriting:")
+    await message.answer("🔒 Parolni kiriting:")
 
 @dp.message(F.text == SECRET_PASSWORD)
 async def unlock(message: Message):
     AUTHORIZED_USERS.add(message.from_user.id)
     kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Signal olish 🚀")]], resize_keyboard=True)
-    await message.answer("✅ Parol to'g'ri! Tizim ishga tushdi.", reply_markup=kb)
+    await message.answer("✅ Tizim faol.", reply_markup=kb)
 
 @dp.message(F.text == "Signal olish 🚀")
 async def get_signal(message: Message):
-    if message.from_user.id not in AUTHORIZED_USERS:
-        await message.answer("❌ Sizga ruxsat yo'q! Parolni kiriting.")
-        return
-
+    if message.from_user.id not in AUTHORIZED_USERS: return
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=50") as resp:
                 data = await resp.json()
                 c = [float(x[4]) for x in data]; h = [float(x[2]) for x in data]; l = [float(x[3]) for x in data]
                 sig, rsi, stoch = analyze_market(c, h, l)
-                await message.answer(f"📊 {sig}\n📈 RSI: {rsi:.2f}\n📉 Stochastic: {stoch:.2f}")
+                await message.answer(f"📊 {sig}\n📈 RSI: {rsi:.2f}\n📉 Stoch: {stoch:.2f}")
     except Exception as e:
-        await message.answer(f"Xatolik yuz berdi: {e}")
+        await message.answer(f"Xatolik: {e}")
 
 async def main():
     await dp.start_polling(bot)
