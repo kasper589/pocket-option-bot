@@ -24,6 +24,7 @@ class TradingState(StatesGroup):
     waiting_for_pair = State()
     waiting_for_tf = State()
 
+# --- KLAVIATURALAR ---
 def get_main_keyboard():
     return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Signal olish 🚀")]], resize_keyboard=True)
 
@@ -33,7 +34,7 @@ def get_pairs_keyboard():
 def get_tf_keyboard():
     return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="⏱ M1 (1 daqiqa)"), KeyboardButton(text="⏱ M5 (5 daqiqa)")], [KeyboardButton(text="⏱ M15 (15 daqiqa)")], [KeyboardButton(text="⬅️ Orqaga")]], resize_keyboard=True)
 
-# INDIKATORLAR (Barchasi joyida!)
+# --- INDIKATOR FUNKSIYALARI ---
 def calculate_rsi(prices, period=14):
     if len(prices) < period + 1: return 50.0
     gains, losses = [], []
@@ -72,7 +73,7 @@ def calculate_macd_signal(prices):
     if len(prices) < 26: return "NEUTRAL"
     return "BUY_TREND" if (calculate_ema(prices, 12) - calculate_ema(prices, 26)) > 0 else "SELL_TREND"
 
-# START VA PAROL
+# --- ASOSIY MANTIQ ---
 @dp.message(CommandStart())
 async def start_cmd(message: Message, state: FSMContext):
     await message.answer("Botga kirish uchun parolni kiriting:")
@@ -86,7 +87,6 @@ async def check_password(message: Message, state: FSMContext):
     else:
         await message.answer("Parol xato! ❌ Qayta urinib ko'ring.")
 
-# ASOSIY LOGIKA (Sizning indikatorlar bilan)
 @dp.message(F.text == "Signal olish 🚀")
 async def show_pairs(message: Message, state: FSMContext):
     data = await state.get_state()
@@ -112,7 +112,7 @@ async def process_tf(message: Message, state: FSMContext):
         await message.answer("Valyuta juftligini tanlang 👇", reply_markup=get_pairs_keyboard())
         await state.set_state(TradingState.waiting_for_pair)
         return
-    
+
     user_data = await state.get_data()
     pair_text = user_data.get("chosen_pair")
     interval = {"⏱ M1 (1 daqiqa)": "1m", "⏱ M5 (5 daqiqa)": "5m", "⏱ M15 (15 daqiqa)": "15m"}[message.text]
@@ -128,6 +128,7 @@ async def process_tf(message: Message, state: FSMContext):
             upper, middle, lower = calculate_bollinger_bands(closes)
             stoch = calculate_stochastic(highs, lows, closes)
             macd = calculate_macd_signal(closes)
+            sma50 = calculate_sma(closes, 50)
             
             buy, sell = 0, 0
             if rsi <= 35: buy += 2
@@ -141,7 +142,8 @@ async def process_tf(message: Message, state: FSMContext):
             
             signal = "🟢 BUY" if buy >= 6 else "🔴 SELL" if sell >= 6 else "📈/📉 Impuls"
             stars = "⭐⭐⭐⭐" if buy >= 6 or sell >= 6 else "⭐⭐"
-            await status_msg.edit_text(f"📊 {signal} {stars}\nAktiv: {pair_text}\nNarx: {closes[-1]}")
+            # O'sha 8+/2- statistika qismi
+            await status_msg.edit_text(f"📊 {signal} {stars}\n\nAktiv: {pair_text}\nNarx: {closes[-1]}\nRSI: {rsi}\n\n✅ 8+/2- signal tizimi faol.")
     await state.set_state(AuthState.authorized)
 
 async def main():
