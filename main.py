@@ -3,7 +3,7 @@ from flask import Flask
 from threading import Thread
 
 # Bot tokeningiz
-bot = telebot.TeleBot("8893762032:AAH23-yyQib8wdRnf4tk7inW-f9SiWLMJ-8")
+bot = telebot.TeleBot("8800349563:AAF-JZqoHejjYrbOKeojXeWs3Lg7tbDI7i4")
 app = Flask('')
 
 @app.route('/')
