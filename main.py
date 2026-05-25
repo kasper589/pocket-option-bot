@@ -1,7 +1,9 @@
+import os
 import telebot
 from telebot import types
 
-bot = telebot.TeleBot("8800349563:AAHmRfc9S2Z3lRf5crvxmQR5Lmj0StAfcPY")
+TOKEN = os.environ.get("BOT_TOKEN")
+bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -22,7 +24,7 @@ def analyze(message):
             bot.reply_to(message, "🟢 SIGNAL: YUQORI (UP) | Ball: 5/5")
         else:
             bot.reply_to(message, "Xatolik! 5 ta qiymat kiriting.")
-    except:
-        bot.reply_to(message, "Xatolik yuz berdi!")
+    except Exception as e:
+        bot.reply_to(message, f"Xatolik yuz berdi: {e}")
 
 bot.polling()
