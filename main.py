@@ -1,45 +1,60 @@
-import asyncio
-import aiohttp
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.filters import CommandStart
+import telebot
+from flask import Flask
+from threading import Thread
 
-BOT_TOKEN = "8800349563:AAExIc3e-ecukrbn07akiVBx69sZkNrdIxE"
-SECRET_PASSWORD = "KASPER404"
-AUTHORIZED = set()
+# 1. Botni ishga tushirish
+bot = telebot.TeleBot("8893762032:AAH23-yyQib8wdRnf4tk7inW-f9SiWLMJ-8")
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
+# 2. Render (Web Service) uchun server qismi
+app = Flask('')
 
-def analyze_market(c, h, l):
-    rsi = 100 - (100 / (1 + (sum([max(0, c[i]-c[i-1]) for i in range(1, 14)]) / (sum([max(0, c[i-1]-c[i]) for i in range(1, 14)]) + 0.001))))
-    ema12 = sum(c[-12:]) / 12
-    ema26 = sum(c[-26:]) / 26
-    stoch = ((c[-1] - min(l[-14:])) / (max(h[-14:]) - min(l[-14:]) + 0.001)) * 100
-    bollinger_mid = sum(c[-20:]) / 20
-    score = (1 if rsi < 35 else 0) + (1 if ema12 > ema26 else 0) + (1 if stoch < 20 else 0) + (1 if c[-1] < bollinger_mid else 0)
-    return ("🟢 BUY" if score >= 2 else "🔴 SELL"), rsi, stoch
+@app.route('/')
+def home():
+    return "Bot ishlamoqda!"
 
-@dp.message(CommandStart())
-async def start(msg: Message): await msg.answer("🔒 Parolni kiriting:")
+def run():
+    app.run(host='0.0.0.0', port=8080)
 
-@dp.message(F.text == SECRET_PASSWORD)
-async def unlock(msg: Message):
-    AUTHORIZED.add(msg.from_user.id)
-    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Signal olish 🚀")]], resize_keyboard=True)
-    await msg.answer("✅ Tizim faol.", reply_markup=kb)
+# Serverni fon rejimida yoqamiz
+t = Thread(target=run)
+t.start()
 
-@dp.message(F.text == "Signal olish 🚀")
-async def get_signal(msg: Message):
-    if msg.from_user.id not in AUTHORIZED: return
+# 3. Asosiy bot funksiyalari
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(message.chat.id, "Tizim faol. Analiz uchun 5 ta parametrni vergul bilan kiriting:\nFormat: RSI,Trend,Stoch,Boll,Vol\nMasalan: 30,up,20,low,high")
+
+@bot.message_handler(func=lambda message: True)
+def analyze(message):
+    text = message.text
+    if ',' not in text:
+        return
+        
+    data = text.split(',')
+    if len(data) != 5:
+        bot.reply_to(message, "⚠️ Xatolik: 5 ta parametr kiriting (RSI,Trend,Stoch,Boll,Vol)")
+        return
+
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=50") as resp:
-                data = await resp.json()
-                c = [float(x[4]) for x in data]; h = [float(x[2]) for x in data]; l = [float(x[3]) for x in data]
-                sig, rsi, stoch = analyze_market(c, h, l)
-                await msg.answer(f"📊 {sig}\n📈 RSI: {rsi:.2f}\n📉 Stoch: {stoch:.2f}")
-    except Exception as e: await msg.answer(f"Xatolik: {e}")
+        rsi = float(data[0])
+        trend = data[1].lower()
+        stoch = float(data[2])
+        boll = data[3].lower()
+        vol = data[4].lower()
 
-async def main(): await dp.start_polling(bot)
-if __name__ == "__main__": asyncio.run(main())
+        # Strategiya ballari
+        up_score = (rsi < 35) + (trend == 'up') + (stoch < 30) + (boll == 'low') + (vol == 'high')
+        down_score = (rsi > 65) + (trend == 'down') + (stoch > 70) + (boll == 'high') + (vol == 'high')
+
+        if up_score >= 3:
+            bot.reply_to(message, f"🟢 SIGNAL: YUQORI (UP)\nBall: {up_score}/5")
+        elif down_score >= 3:
+            bot.reply_to(message, f"🔴 SIGNAL: PAST (DOWN)\nBall: {down_score}/5")
+        else:
+            bot.reply_to(message, f"⏳ Signal kuchsiz (Ball: {max(up_score, down_score)}/5). Kuting.")
+            
+    except Exception as e:
+        bot.reply_to(message, "⚠️ Xatolik: Ma'lumotlarni to'g'ri raqamlar bilan kiriting.")
+
+# Botni doimiy eshitish rejimida qoldiramiz
+bot.polling(none_stop=True)
