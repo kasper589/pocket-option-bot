@@ -2,6 +2,7 @@ import os
 import telebot
 from telebot import types
 
+# Render'dagi Environment Variable'dan tokenni o'qiydi
 TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
