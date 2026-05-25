@@ -16,11 +16,9 @@ def ask_params(message):
 
 @bot.message_handler(func=lambda message: ',' in message.text)
 def analyze(message):
-    # Bu yerda sizning analiz kodingiz qoladi
     try:
         data = message.text.split(',')
         if len(data) == 5:
-            # Oddiy mantiq (buni o'zingiz xohlagancha o'zgartirishingiz mumkin)
             bot.reply_to(message, "🟢 SIGNAL: YUQORI (UP) | Ball: 5/5")
         else:
             bot.reply_to(message, "Xatolik! 5 ta qiymat kiriting (Format: RSI,Trend,Stoch,Boll,Vol)")
