@@ -12,7 +12,7 @@ def send_welcome(message):
 
 @bot.message_handler(func=lambda message: message.text == "Signal olish 🚀")
 def ask_params(message):
-    bot.send_message(message.chat.id, "Tushundim. Analiz uchun raqamlarni shu formatda yuboring:\nRSI,Trend,Stoch,Boll,Vol\n\nMasalan: 30,up,20,low,high")
+    bot.send_message(message.chat.id, "Tushundim. Analiz uchun raqamlarni shu formatda yuboring:\nRSI,Trend,Stoch,Boll,Vol")
 
 @bot.message_handler(func=lambda message: ',' in message.text)
 def analyze(message):
@@ -21,7 +21,7 @@ def analyze(message):
         if len(data) == 5:
             bot.reply_to(message, "🟢 SIGNAL: YUQORI (UP) | Ball: 5/5")
         else:
-            bot.reply_to(message, "Xatolik! 5 ta qiymat kiriting (Format: RSI,Trend,Stoch,Boll,Vol)")
+            bot.reply_to(message, "Xatolik! 5 ta qiymat kiriting.")
     except:
         bot.reply_to(message, "Xatolik yuz berdi!")
 
