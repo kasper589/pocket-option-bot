@@ -24,8 +24,41 @@ t.start()
 def start(message):
     bot.send_message(message.chat.id, "Tizim faol. Analiz uchun 5 ta parametrni vergul bilan kiriting:\nFormat: RSI,Trend,Stoch,Boll,Vol\nMasalan: 30,up,20,low,high")
 
-@bot.message_handler(func=lambda message: True)
+@bot.message_handler(func=lambda message: ',' in message.text)
 def analyze(message):
+    text = message.text
+    # 1. BU YERNI O'ZGARTIRING:
+    if ',' not in text:
+        return # Agar xabarda vergul bo'lmasa, uni shunchaki o'tkazib yubor
+    
+    # 2. Keyingi qatorlar qolsin
+    data = text.split(',')
+    if len(data) < 5:
+        bot.reply_to(message, "⚠️ Xatolik: Signal to'liq emas (5 ta qiymat kerak)!")
+        return
+    # ... qolgan qatorlar o'zgarmaydi ...
+    text = message.text
+    # 1. BU YERNI O'ZGARTIRING:
+    if ',' not in text:
+        return # Agar xabarda vergul bo'lmasa, uni shunchaki o'tkazib yubor
+    
+    # 2. Keyingi qatorlar qolsin
+    data = text.split(',')
+    if len(data) < 5:
+        bot.reply_to(message, "⚠️ Xatolik: Signal to'liq emas (5 ta qiymat kerak)!")
+        return
+    # ... qolgan qatorlar o'zgarmaydi ...
+    text = message.text
+    # 1. BU YERNI O'ZGARTIRING:
+    if ',' not in text:
+        return # Agar xabarda vergul bo'lmasa, uni shunchaki o'tkazib yubor
+    
+    # 2. Keyingi qatorlar qolsin
+    data = text.split(',')
+    if len(data) < 5:
+        bot.reply_to(message, "⚠️ Xatolik: Signal to'liq emas (5 ta qiymat kerak)!")
+        return
+    # ... qolgan qatorlar o'zgarmaydi ...
     text = message.text
     if ',' not in text:
         return
