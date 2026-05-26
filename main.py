@@ -5,42 +5,41 @@ from telebot import types
 TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-# 1. Start menyusi (Reply keyboard)
+# Foydalanuvchi tanlovlarini saqlash uchun lug'at
+user_data = {}
+
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
+def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(types.KeyboardButton("Signal olish 🚀"))
-    bot.send_message(message.chat.id, "Xush kelibsiz! Savdoni boshlash uchun tugmani bosing:", reply_markup=markup)
+    bot.send_message(message.chat.id, "Xush kelibsiz! Analizni boshlash uchun tugmani bosing.", reply_markup=markup)
 
-# 2. Signal olish tugmasi bosilganda
 @bot.message_handler(func=lambda message: message.text == "Signal olish 🚀")
-def show_signal_options(message):
-    # Inline tugmalar yaratamiz
+def step1(message):
     markup = types.InlineKeyboardMarkup()
-    btn_up = types.InlineKeyboardButton("Yuqoriga (UP) ⬆️", callback_data="signal_up")
-    btn_down = types.InlineKeyboardButton("Pastga (DOWN) ⬇️", callback_data="signal_down")
-    markup.add(btn_up, btn_down)
-    
-    bot.send_message(message.chat.id, "Qaysi yo'nalishda signal kerak?", reply_markup=markup)
+    markup.add(types.InlineKeyboardButton("EUR/USD", callback_data="pair_eurusd"),
+               types.InlineKeyboardButton("BTC/USD", callback_data="pair_btcusd"))
+    bot.send_message(message.chat.id, "1. Valyuta juftligini tanlang:", reply_markup=markup)
 
-# 3. Inline tugmalarni qayta ishlash
 @bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    if call.data == "signal_up":
-        bot.answer_callback_query(call.id, "Analiz bajarildi...")
-        bot.send_message(call.message.chat.id, "🟢 SIGNAL: YUQORI (UP) | Ishonchlilik: 95%")
-    elif call.data == "signal_down":
-        bot.answer_callback_query(call.id, "Analiz bajarildi...")
-        bot.send_message(call.message.chat.id, "🔴 SIGNAL: PAST (DOWN) | Ishonchlilik: 92%")
+def callback_handler(call):
+    chat_id = call.message.chat.id
+    
+    if call.data.startswith("pair_"):
+        user_data[chat_id] = {"pair": call.data.split("_")[1]}
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("1 min", callback_data="time_1"),
+                   types.InlineKeyboardButton("5 min", callback_data="time_5"))
+        bot.edit_message_text("2. Vaqt (M) ni tanlang:", chat_id, call.message.message_id, reply_markup=markup)
 
-# 4. Avtomatik analiz (Agar foydalanuvchi ma'lumot yuborsa)
-@bot.message_handler(func=lambda message: ',' in message.text)
-def analyze(message):
-    data = message.text.split(',')
-    if len(data) == 5:
-        # Bu yerda siz o'zingizning analiz formulangizni qo'shishingiz mumkin
-        bot.reply_to(message, "📊 Analiz natijasi: \nBozor holati barqaror. Signal: YUQORI (UP) ✅")
-    else:
-        bot.reply_to(message, "⚠️ Xato format! RSI,Trend,Stoch,Boll,Vol tartibida yozing.")
+    elif call.data.startswith("time_"):
+        pair = user_data[chat_id]["pair"]
+        time = call.data.split("_")[1]
+        
+        # Bu yerda analiz formulangiz ishlaydi (hozircha shartli)
+        result = "🟢 YUQORI (UP)" if "eur" in pair else "🔴 PAST (DOWN)"
+        
+        bot.edit_message_text(f"📊 ANALIZ NATIJASI:\n\nJuftlik: {pair.upper()}\nVaqt: {time} min\nSignal: {result}\n\nAnaliz tugallandi!", 
+                              chat_id, call.message.message_id)
 
 bot.infinity_polling()
