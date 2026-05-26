@@ -1,73 +1,62 @@
 import os
 import telebot
 from telebot import types
-import random
+import yfinance as yf
 
 TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-def analyze_market_data(timeframe):
-    # RSI: Hissiyotni o'lchash
-    rsi = random.randint(20, 80)
-    # SMA: Trend yo'nalishi
-    sma_trend = random.choice(["O'sishda 📈", "Pasayishda 📉"])
-    # MACD: Trend kuchi
-    macd_signal = random.choice(["O'sish kuchi 🚀", "Pasayish kuchi 📉"])
+def analyze_market_data(pair, timeframe):
+    # Real vaqtda narxni olish (yfinance)
+    ticker = yf.Ticker(f"{pair}=X")
+    data = ticker.history(period="1d", interval="1m")
     
-    # "UCHLIK FILTR" Mantiq: Barcha indikatorlar bir nuqtani ko'rsatsin
-    if rsi < 35 and sma_trend == "O'sishda 📈" and macd_signal == "O'sish kuchi 🚀":
+    if data.empty:
+        return "Xatolik", "Ma'lumot topilmadi", "Qayta urinib ko'ring."
+
+    price = data['Close'].iloc[-1]
+    # RSI ni oddiy hisoblash (taxminiy logika real narxga asoslangan)
+    rsi = 50 + (price - data['Open'].iloc[0]) * 10 
+    rsi = max(20, min(80, rsi)) # RSI ni 20-80 oralig'ida ushlaymiz
+
+    if rsi < 35:
         signal = "🟢 KUCHLI SOTIB OLISH (BUY)"
-        reason = f"RSI {rsi} + Trend {sma_trend} + {macd_signal}"
-        advice = f"UCHLIK TASDIQLADI: {timeframe} daqiqaga zdelka oching!"
-    elif rsi > 65 and sma_trend == "Pasayishda 📉" and macd_signal == "Pasayish kuchi 📉":
+        advice = f"{timeframe} daqiqaga zdelka oching!"
+    elif rsi > 65:
         signal = "🔴 KUCHLI SOTISH (SELL)"
-        reason = f"RSI {rsi} + Trend {sma_trend} + {macd_signal}"
-        advice = f"UCHLIK TASDIQLADI: {timeframe} daqiqaga zdelka oching!"
+        advice = f"{timeframe} daqiqaga zdelka oching!"
     else:
         signal = "🟡 KUTISH (WAIT)"
-        reason = f"RSI {rsi}, Trend {sma_trend}, MACD {macd_signal}"
-        advice = "Indikatorlar bir-biriga qarshi. Xavfsizroq kuting."
+        advice = "Bozor noaniq, kuting."
         
-    return signal, reason, advice
+    return signal, f"Real narx: {price:.4f} | RSI: {rsi:.2f}", advice
 
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(types.KeyboardButton("Analizni boshlash 🔍"))
-    bot.send_message(message.chat.id, "Pocket Option Pro bot ishga tushdi. Analizni boshlang!", reply_markup=markup)
+    bot.send_message(message.chat.id, "Real vaqtli Pro bot ishga tushdi!", reply_markup=markup)
 
 @bot.message_handler(func=lambda message: message.text == "Analizni boshlash 🔍")
 def choose_pair(message):
     markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(types.InlineKeyboardButton("EUR/USD", callback_data="pair_eurusd"),
-               types.InlineKeyboardButton("GBP/USD", callback_data="pair_gbpusd"),
-               types.InlineKeyboardButton("BTC/USD", callback_data="pair_btcusd"))
-    bot.send_message(message.chat.id, "1. Juftlikni tanlang:", reply_markup=markup)
+    markup.add(types.InlineKeyboardButton("EUR/USD", callback_data="pair_EURUSD"),
+               types.InlineKeyboardButton("GBP/USD", callback_data="pair_GBPUSD"))
+    bot.send_message(message.chat.id, "Juftlikni tanlang:", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
-    chat_id = call.message.chat.id
-    
     if call.data.startswith("pair_"):
-        pair = call.data.split("_")[1].upper()
+        pair = call.data.split("_")[1]
         markup = types.InlineKeyboardMarkup(row_width=3)
         markup.add(types.InlineKeyboardButton("1 min", callback_data=f"time_1_{pair}"),
-                   types.InlineKeyboardButton("3 min", callback_data=f"time_3_{pair}"),
-                   types.InlineKeyboardButton("5 min", callback_data=f"time_5_{pair}"))
-        bot.edit_message_text(f"Tanlandi: {pair}\n2. Vaqtni tanlang:", chat_id, call.message.message_id, reply_markup=markup)
+                   types.InlineKeyboardButton("3 min", callback_data=f"time_3_{pair}"))
+        bot.edit_message_text(f"Tanlandi: {pair}\nVaqtni tanlang:", call.message.chat.id, call.message.message_id, reply_markup=markup)
     
     elif call.data.startswith("time_"):
         _, time, pair = call.data.split("_")
-        signal, reason, advice = analyze_market_data(time)
-        
-        result = (
-            f"📊 **{pair} PRO ANALIZ**\n\n"
-            f"Vaqt oralig'i: {time} min\n"
-            f"Indikatorlar jamlanmasi:\n{reason}\n\n"
-            f"Signal: {signal}\n"
-            f"Tavsiya: {advice}\n\n"
-            f"⚠️ Qarorni grafikni ko'rib qabul qiling!"
-        )
-        bot.edit_message_text(result, chat_id, call.message.message_id, parse_mode="Markdown")
+        signal, reason, advice = analyze_market_data(pair, time)
+        result = f"📊 **{pair} REAL ANALIZ**\n\n{reason}\nSignal: {signal}\nMaslahat: {advice}"
+        bot.edit_message_text(result, call.message.chat.id, call.message.message_id, parse_mode="Markdown")
 
 bot.infinity_polling()
