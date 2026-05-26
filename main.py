@@ -3,6 +3,7 @@ import telebot
 from telebot import types
 import yfinance as yf
 
+# Bot tokenini olish
 TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
@@ -10,29 +11,32 @@ bot = telebot.TeleBot(TOKEN)
 PAIRS = ["EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "USDCHF", "NZDUSD"]
 
 def analyze_market_data(pair, timeframe):
+    # Real vaqtda ma'lumot olish
     ticker = yf.Ticker(f"{pair}=X")
     data = ticker.history(period="1d", interval="1m")
     
     if data.empty:
-        return "Xatolik", "Ma'lumot topilmadi.", "Qayta urinib ko'ring."
+        return "Xatolik", "Ma'lumot topilmadi", "Qayta urinib ko'ring."
 
-    price = data['Close'].iloc[-1]
-    open_price = data['Open'].iloc[-1]
+    # Oxirgi ikkita narxni solishtiramiz
+    current_price = data['Close'].iloc[-1]
+    previous_price = data['Close'].iloc[-2]
     
-    if price > open_price + 0.00003: 
+    # "KUTISH" signali olib tashlandi. Har doim signal beradi:
+    if current_price >= previous_price:
         signal = "🟢 SOTIB OLISH (BUY)"
-    elif price < open_price - 0.00003:
-        signal = "🔴 SOTISH (SELL)"
+        advice = "Narx o'smoqda, kiring!"
     else:
-        signal = "🟡 KUTISH (WAIT)"
+        signal = "🔴 SOTISH (SELL)"
+        advice = "Narx tushmoqda, kiring!"
         
-    return signal, f"Joriy narx: {price:.4f}", f"{timeframe} daqiqalik tahlil."
+    return signal, f"Joriy narx: {current_price:.4f}", advice
 
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(types.KeyboardButton("Analizni boshlash 🔍"))
-    bot.send_message(message.chat.id, "Pro-Bot yangilandi! 6 ta juftlik va 4 xil vaqt oralig'i faol.", reply_markup=markup)
+    bot.send_message(message.chat.id, "Pro-Bot faol! Har doim signal beradi.", reply_markup=markup)
 
 @bot.message_handler(func=lambda message: message.text == "Analizni boshlash 🔍")
 def choose_pair(message):
@@ -54,7 +58,7 @@ def callback_handler(call):
     elif call.data.startswith("time_"):
         _, time, pair = call.data.split("_")
         signal, reason, advice = analyze_market_data(pair, time)
-        result = f"📊 **{pair} PRO ANALIZ**\n\n{reason}\nSignal: {signal}\nInfo: {advice}"
+        result = f"📊 **{pair} PRO ANALIZ**\n\n{reason}\nSignal: {signal}\nMaslahat: {advice}"
         bot.edit_message_text(result, call.message.chat.id, call.message.message_id, parse_mode="Markdown")
 
 bot.infinity_polling()
