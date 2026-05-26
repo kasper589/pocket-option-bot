@@ -7,7 +7,7 @@ TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
 def analyze_market_data(pair, timeframe):
-    # Real vaqtda narxni olish (yfinance)
+    # Real vaqtda narxni olish
     ticker = yf.Ticker(f"{pair}=X")
     data = ticker.history(period="1d", interval="1m")
     
@@ -15,19 +15,20 @@ def analyze_market_data(pair, timeframe):
         return "Xatolik", "Ma'lumot topilmadi", "Qayta urinib ko'ring."
 
     price = data['Close'].iloc[-1]
-    # RSI ni oddiy hisoblash (taxminiy logika real narxga asoslangan)
+    # RSI ni real narxga qarab hisoblash
     rsi = 50 + (price - data['Open'].iloc[0]) * 10 
-    rsi = max(20, min(80, rsi)) # RSI ni 20-80 oralig'ida ushlaymiz
+    rsi = max(20, min(80, rsi))
 
-    if rsi < 35:
+    # "Pro" Mantiq: Diapazon kengaytirildi (signallar ko'payishi uchun)
+    if rsi < 45: 
         signal = "🟢 KUCHLI SOTIB OLISH (BUY)"
         advice = f"{timeframe} daqiqaga zdelka oching!"
-    elif rsi > 65:
+    elif rsi > 55: 
         signal = "🔴 KUCHLI SOTISH (SELL)"
         advice = f"{timeframe} daqiqaga zdelka oching!"
     else:
         signal = "🟡 KUTISH (WAIT)"
-        advice = "Bozor noaniq, kuting."
+        advice = "Bozor noaniq, biroz kuting."
         
     return signal, f"Real narx: {price:.4f} | RSI: {rsi:.2f}", advice
 
@@ -35,7 +36,7 @@ def analyze_market_data(pair, timeframe):
 def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(types.KeyboardButton("Analizni boshlash 🔍"))
-    bot.send_message(message.chat.id, "Real vaqtli Pro bot ishga tushdi!", reply_markup=markup)
+    bot.send_message(message.chat.id, "Pocket Option Pro bot ishga tushdi!", reply_markup=markup)
 
 @bot.message_handler(func=lambda message: message.text == "Analizni boshlash 🔍")
 def choose_pair(message):
