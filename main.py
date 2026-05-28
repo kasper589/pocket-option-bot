@@ -8,13 +8,9 @@ TWELVE_API = "0a2fb3dd461f4ea8bb06d56181995b3e"
 
 bot = telebot.TeleBot(TOKEN)
 
-# AUDUSD birinchi â€” eng zo'r juftlik (82.86%)
 PAIRS = ["AUD/USD", "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "NZD/USD", "EUR/JPY", "GBP/JPY"]
 
-# ============================================
-# REAL VAQT MA'LUMOT
-# ============================================
-def get_data(pair, interval, outputsize=100):
+def get_data(pair, interval, outputsize=80):
     url = "https://api.twelvedata.com/time_series"
     params = {
         "symbol": pair,
@@ -23,26 +19,25 @@ def get_data(pair, interval, outputsize=100):
         "apikey": TWELVE_API,
     }
     try:
-        r = requests.get(url, params=params, timeout=10)
+        r = requests.get(url, params=params, timeout=15)
         data = r.json()
         if "values" not in data:
-            return None
+            return None, data.get("message", "Noma'lum xatolik")
         values = data["values"]
         df = pd.DataFrame(reversed(values))
         df['close'] = df['close'].astype(float)
         df['high'] = df['high'].astype(float)
         df['low'] = df['low'].astype(float)
-        return df
-    except:
-        return None
+        return df, None
+    except Exception as e:
+        return None, str(e)
 
-# ============================================
-# INDIKATORLAR
-# ============================================
 def analyze(pair, timeframe):
-    df = get_data(pair, timeframe, outputsize=100)
-    if df is None or len(df) < 60:
-        return None
+    df, error = get_data(pair, timeframe, outputsize=80)
+    if df is None:
+        return None, error
+    if len(df) < 30:
+        return None, "Yetarli ma'lumot yo'q"
 
     close = df['close']
     high = df['high']
@@ -76,33 +71,11 @@ def analyze(pair, timeframe):
     high14 = high.rolling(14).max()
     df['STOCH'] = 100 * (close - low14) / (high14 - low14)
 
-    # ATR
-    tr1 = high - low
-    tr2 = (high - close.shift()).abs()
-    tr3 = (low - close.shift()).abs()
-    df['ATR'] = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1).rolling(14).mean()
-
     df.dropna(inplace=True)
-    if len(df) < 5:
-        return None
+    if len(df) < 3:
+        return None, "NaN tozalashdan keyin ma'lumot qolmadi"
 
     row = df.iloc[-1]
-    avg_atr = df['ATR'].mean()
-
-    # ATR filtri â€” bozor juda tinch bo'lsa
-    if row['ATR'] < avg_atr * 0.7:
-        return {
-            "pair": pair,
-            "timeframe": timeframe,
-            "price": round(row['close'], 5),
-            "direction": "HOLD",
-            "confidence": 0,
-            "strength": "ðŸ˜´ BOZOR TINCH",
-            "rsi": round(row['RSI'], 1),
-            "macd": "Yuqori â†‘" if row['MACD'] > 0 else "Past â†“",
-            "ema": "Yuqori â†‘" if row['EMA9'] > row['EMA21'] else "Past â†“",
-            "stoch": round(row['STOCH'], 1),
-        }
 
     trend_up = row['EMA9'] > row['EMA21'] > row['EMA50']
     trend_down = row['EMA9'] < row['EMA21'] < row['EMA50']
@@ -112,9 +85,9 @@ def analyze(pair, timeframe):
 
     # RSI
     if row['RSI'] < 30: buy_score += 2
-    elif row['RSI'] < 40: buy_score += 1
+    elif row['RSI'] < 45: buy_score += 1
     elif row['RSI'] > 70: sell_score += 2
-    elif row['RSI'] > 60: sell_score += 1
+    elif row['RSI'] > 55: sell_score += 1
 
     # EMA
     if trend_up: buy_score += 2
@@ -127,35 +100,33 @@ def analyze(pair, timeframe):
     else: sell_score += 1
 
     # Bollinger
+    bb_range = row['BB_upper'] - row['BB_lower']
     if row['close'] < row['BB_lower']: buy_score += 2
     elif row['close'] > row['BB_upper']: sell_score += 2
-    elif row['close'] < (row['BB_lower'] + (row['BB_upper'] - row['BB_lower']) * 0.3): buy_score += 1
-    elif row['close'] > (row['BB_upper'] - (row['BB_upper'] - row['BB_lower']) * 0.3): sell_score += 1
+    elif row['close'] < (row['BB_lower'] + bb_range * 0.35): buy_score += 1
+    elif row['close'] > (row['BB_upper'] - bb_range * 0.35): sell_score += 1
 
     # Stochastic
-    if row['STOCH'] < 20: buy_score += 2
-    elif row['STOCH'] < 30: buy_score += 1
-    elif row['STOCH'] > 80: sell_score += 2
-    elif row['STOCH'] > 70: sell_score += 1
+    if row['STOCH'] < 25: buy_score += 2
+    elif row['STOCH'] < 40: buy_score += 1
+    elif row['STOCH'] > 75: sell_score += 2
+    elif row['STOCH'] > 60: sell_score += 1
 
     max_score = 10
     if buy_score > sell_score:
         direction = "BUY"
         confidence = round((buy_score / max_score) * 100)
-    else:
+    elif sell_score > buy_score:
         direction = "SELL"
         confidence = round((sell_score / max_score) * 100)
-
-    # Faqat 65%+ signallar
-    if confidence < 65:
-        direction = "KUTING"
-        strength = "â³ SIGNAL KUCHSIZ â€” Kuting"
-    elif confidence >= 80:
-        strength = "ðŸ’¥ JUDA KUCHLI â€” KIRING!"
-    elif confidence >= 70:
-        strength = "âœ… KUCHLI"
     else:
-        strength = "ðŸ‘ YETARLI"
+        direction = "KUTING"
+        confidence = 50
+
+    if confidence >= 80: strength = "ðŸ’¥ JUDA KUCHLI â€” KIRING!"
+    elif confidence >= 70: strength = "âœ… KUCHLI"
+    elif confidence >= 60: strength = "ðŸ‘ YETARLI"
+    else: strength = "â³ KUCHSIZ â€” Kuting"
 
     return {
         "pair": pair,
@@ -168,11 +139,8 @@ def analyze(pair, timeframe):
         "macd": "Yuqori â†‘" if row['MACD'] > 0 else "Past â†“",
         "ema": "Yuqori â†‘" if row['EMA9'] > row['EMA21'] else "Past â†“",
         "stoch": round(row['STOCH'], 1),
-    }
+    }, None
 
-# ============================================
-# TELEGRAM
-# ============================================
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -183,8 +151,7 @@ def start(message):
         message.chat.id,
         "ðŸ¤– *PRO SKALPER BOT v3*\n\n"
         "â­ AUDUSD â€” 82.86% aniqlik!\n"
-        "ðŸ’¥ Faqat kuchli signallar (65%+)\n"
-        "ðŸ“ˆ 6 ta indikator: RSI, EMA, MACD, BB, Stoch, ATR\n\n"
+        "ðŸ’¥ 6 ta indikator: RSI, EMA, MACD, BB, Stoch\n\n"
         "Boshlash uchun tugmani bosing ðŸ‘‡",
         parse_mode="Markdown",
         reply_markup=markup
@@ -203,10 +170,8 @@ def about(message):
     bot.send_message(
         message.chat.id,
         "ðŸ“Œ *PRO SKALPER BOT v3*\n\n"
-        "âœ… Real vaqt narxlar (Twelvedata)\n"
+        "âœ… Real vaqt narxlar\n"
         "âœ… 6 ta professional indikator\n"
-        "âœ… ATR filtri â€” tinch bozorni o'tkazib yuboradi\n"
-        "âœ… Faqat 65%+ ishonchli signallar\n"
         "â­ AUDUSD â€” 82.86% backtesting aniqlik\n\n"
         "âš ï¸ _Bu bot faqat tahlil uchun!_",
         parse_mode="Markdown"
@@ -217,7 +182,7 @@ def choose_pair(message):
     markup = types.InlineKeyboardMarkup(row_width=4)
     buttons = [types.InlineKeyboardButton(p, callback_data=f"pair_{p}") for p in PAIRS]
     markup.add(*buttons)
-    bot.send_message(message.chat.id, "ðŸ’± *Valyuta juftligini tanlang:*\nâ­ = Eng zo'r", parse_mode="Markdown", reply_markup=markup)
+    bot.send_message(message.chat.id, "ðŸ’± *Valyuta juftligini tanlang:*", parse_mode="Markdown", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pair_"))
 def choose_time(call):
@@ -247,24 +212,19 @@ def show_signal(call):
         parse_mode="Markdown"
     )
 
-    result = analyze(pair, timeframe)
+    result, error = analyze(pair, timeframe)
 
     if result is None:
         bot.edit_message_text(
-            "âŒ Ma'lumot olishda xatolik. Qayta urinib ko'ring.",
+            f"âŒ Xatolik: {error}\n\nQayta urinib ko'ring.",
             call.message.chat.id,
             call.message.message_id
         )
         return
 
-    if result['direction'] == "BUY":
-        emoji = "ðŸŸ¢"
-    elif result['direction'] == "SELL":
-        emoji = "ðŸ”´"
-    elif result['direction'] == "KUTING":
-        emoji = "â³"
-    else:
-        emoji = "ðŸ˜´"
+    if result['direction'] == "BUY": emoji = "ðŸŸ¢"
+    elif result['direction'] == "SELL": emoji = "ðŸ”´"
+    else: emoji = "â³"
 
     msg = (
         f"ðŸ“Š *{result['pair']} â€” {result['timeframe']} daqiqa*\n"
