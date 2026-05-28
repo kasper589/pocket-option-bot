@@ -1,9 +1,8 @@
-import os
 import requests
 import telebot
 from telebot import types
 
-TOKEN = os.environ.get("8800349563:AAHmRfc9S2Z3lRf5crvxmQR5Lmj0StAfcPY")
+TOKEN = "8800349563:AAHmRfc9S2Z3lRf5crvxmQR5Lmj0StAfcPY"
 TWELVE_API = "0a2fb3dd461f4ea8bb06d56181995b3e"
 
 bot = telebot.TeleBot(TOKEN)
