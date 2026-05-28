@@ -3,14 +3,13 @@ import requests
 import telebot
 from telebot import types
 
-TOKEN = os.environ.get("BOT_TOKEN")
-TWELVE_API = os.environ.get("TWELVE_API_KEY")
+TOKEN = os.environ.get("8800349563:AAHmRfc9S2Z3lRf5crvxmQR5Lmj0StAfcPY")
+TWELVE_API = "0a2fb3dd461f4ea8bb06d56181995b3e"
 
 bot = telebot.TeleBot(TOKEN)
 
 PAIRS = ["EUR/USD", "GBP/USD", "AUD/USD", "USD/JPY", "USD/CHF", "NZD/USD", "EUR/JPY", "GBP/JPY"]
 
-# ===================== REAL VAQT MA'LUMOT =====================
 def get_realtime_data(pair, interval, outputsize=50):
     url = "https://api.twelvedata.com/time_series"
     params = {
@@ -29,7 +28,6 @@ def get_realtime_data(pair, interval, outputsize=50):
     lows   = [float(v["low"])   for v in reversed(values)]
     return closes, highs, lows
 
-# ===================== INDIKATORLAR =====================
 def calc_rsi(closes, period=14):
     deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
     gains = [d if d > 0 else 0 for d in deltas]
@@ -65,7 +63,6 @@ def calc_bollinger(closes, period=20):
     std = (sum((c - sma)**2 for c in closes[-period:]) / period) ** 0.5
     return sma + 2*std, sma - 2*std
 
-# ===================== TAHLIL =====================
 def analyze(pair, timeframe):
     result = get_realtime_data(pair, timeframe, outputsize=50)
     if result is None:
@@ -124,11 +121,11 @@ def analyze(pair, timeframe):
         confidence = round((sell_score / total) * 100)
 
     if confidence >= 80:
-        strength = "💥 JUDA KUCHLI"
+        strength = "ðŸ’¥ JUDA KUCHLI"
     elif confidence >= 65:
-        strength = "✅ KUCHLI"
+        strength = "âœ… KUCHLI"
     else:
-        strength = "⚠️ ZAIF — Kirmaslik tavsiya"
+        strength = "âš ï¸ ZAIF â€” Kirmaslik tavsiya"
 
     return {
         "pair": pair,
@@ -138,47 +135,46 @@ def analyze(pair, timeframe):
         "confidence": confidence,
         "strength": strength,
         "rsi": round(rsi, 1),
-        "macd": "Yuqori ↑" if macd > 0 else "Past ↓",
-        "ema": "Yuqori trend ↑" if ema9 > ema21 else "Past trend ↓",
+        "macd": "Yuqori â†‘" if macd > 0 else "Past â†“",
+        "ema": "Yuqori trend â†‘" if ema9 > ema21 else "Past trend â†“",
         "stoch": round(stoch, 1),
     }
 
-# ===================== TELEGRAM =====================
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(types.KeyboardButton("📊 Tahlil boshlash"))
-    markup.add(types.KeyboardButton("ℹ️ Bot haqida"))
+    markup.add(types.KeyboardButton("ðŸ“Š Tahlil boshlash"))
+    markup.add(types.KeyboardButton("â„¹ï¸ Bot haqida"))
     bot.send_message(
         message.chat.id,
-        "🤖 *PRO SKALPER BOT* — Real Vaqt!\n\n"
-        "⚡ Twelvedata orqali real narxlar\n"
-        "📈 5 ta indikator: RSI, EMA, MACD, BB, Stoch\n"
-        "💯 Ishonch foizi\n\n"
-        "Boshlash uchun tugmani bosing 👇",
+        "ðŸ¤– *PRO SKALPER BOT* â€” Real Vaqt!\n\n"
+        "âš¡ Twelvedata orqali real narxlar\n"
+        "ðŸ“ˆ 5 ta indikator: RSI, EMA, MACD, BB, Stoch\n"
+        "ðŸ’¯ Ishonch foizi\n\n"
+        "Boshlash uchun tugmani bosing ðŸ‘‡",
         parse_mode="Markdown",
         reply_markup=markup
     )
 
-@bot.message_handler(func=lambda m: m.text == "ℹ️ Bot haqida")
+@bot.message_handler(func=lambda m: m.text == "â„¹ï¸ Bot haqida")
 def about(message):
     bot.send_message(
         message.chat.id,
-        "📌 *PRO SKALPER BOT*\n\n"
-        "✅ Real vaqt narxlar (Twelvedata)\n"
-        "✅ 5 ta professional indikator\n"
-        "✅ Ishonch foizi\n"
-        "✅ 8 ta valyuta juftligi\n\n"
-        "⚠️ _Bu bot faqat tahlil uchun!_",
+        "ðŸ“Œ *PRO SKALPER BOT*\n\n"
+        "âœ… Real vaqt narxlar (Twelvedata)\n"
+        "âœ… 5 ta professional indikator\n"
+        "âœ… Ishonch foizi\n"
+        "âœ… 8 ta valyuta juftligi\n\n"
+        "âš ï¸ _Bu bot faqat tahlil uchun!_",
         parse_mode="Markdown"
     )
 
-@bot.message_handler(func=lambda m: m.text == "📊 Tahlil boshlash")
+@bot.message_handler(func=lambda m: m.text == "ðŸ“Š Tahlil boshlash")
 def choose_pair(message):
     markup = types.InlineKeyboardMarkup(row_width=4)
     buttons = [types.InlineKeyboardButton(p, callback_data=f"pair_{p}") for p in PAIRS]
     markup.add(*buttons)
-    bot.send_message(message.chat.id, "💱 *Valyuta juftligini tanlang:*", parse_mode="Markdown", reply_markup=markup)
+    bot.send_message(message.chat.id, "ðŸ’± *Valyuta juftligini tanlang:*", parse_mode="Markdown", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pair_"))
 def choose_time(call):
@@ -188,7 +184,7 @@ def choose_time(call):
     buttons = [types.InlineKeyboardButton(label, callback_data=f"time_{t}_{pair}") for label, t in times]
     markup.add(*buttons)
     bot.edit_message_text(
-        f"✅ Juftlik: *{pair}*\n\n⏱ *Timeframe tanlang:*",
+        f"âœ… Juftlik: *{pair}*\n\nâ± *Timeframe tanlang:*",
         call.message.chat.id,
         call.message.message_id,
         parse_mode="Markdown",
@@ -202,7 +198,7 @@ def show_signal(call):
     pair = parts[2]
 
     bot.edit_message_text(
-        f"⏳ *{pair}* real vaqt tahlil qilinmoqda...",
+        f"â³ *{pair}* real vaqt tahlil qilinmoqda...",
         call.message.chat.id,
         call.message.message_id,
         parse_mode="Markdown"
@@ -212,33 +208,33 @@ def show_signal(call):
 
     if result is None:
         bot.edit_message_text(
-            "❌ Ma'lumot olishda xatolik. Iltimos qayta urinib ko'ring.",
+            "âŒ Ma'lumot olishda xatolik. Iltimos qayta urinib ko'ring.",
             call.message.chat.id,
             call.message.message_id
         )
         return
 
-    emoji = "🟢" if result["direction"] == "BUY" else "🔴"
+    emoji = "ðŸŸ¢" if result["direction"] == "BUY" else "ðŸ”´"
     msg = (
-        f"📊 *{result['pair']} — {result['timeframe']} daqiqa*\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"💰 Narx: `{result['price']}`\n\n"
+        f"ðŸ“Š *{result['pair']} â€” {result['timeframe']} daqiqa*\n"
+        f"â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n"
+        f"ðŸ’° Narx: `{result['price']}`\n\n"
         f"{emoji} *Signal: {result['direction']}*\n"
-        f"📈 Ishonch: *{result['confidence']}%*\n"
-        f"⚡ Kuch: {result['strength']}\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"🔍 *Indikatorlar:*\n"
-        f"• RSI: `{result['rsi']}`\n"
-        f"• MACD: `{result['macd']}`\n"
-        f"• EMA: `{result['ema']}`\n"
-        f"• Stochastic: `{result['stoch']}`\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"⚠️ _Faqat tahlil uchun!_"
+        f"ðŸ“ˆ Ishonch: *{result['confidence']}%*\n"
+        f"âš¡ Kuch: {result['strength']}\n"
+        f"â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n"
+        f"ðŸ” *Indikatorlar:*\n"
+        f"â€¢ RSI: `{result['rsi']}`\n"
+        f"â€¢ MACD: `{result['macd']}`\n"
+        f"â€¢ EMA: `{result['ema']}`\n"
+        f"â€¢ Stochastic: `{result['stoch']}`\n"
+        f"â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n"
+        f"âš ï¸ _Faqat tahlil uchun!_"
     )
 
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔄 Yangilash", callback_data=f"time_{timeframe}_{pair}"))
-    markup.add(types.InlineKeyboardButton("🏠 Bosh sahifa", callback_data="home"))
+    markup.add(types.InlineKeyboardButton("ðŸ”„ Yangilash", callback_data=f"time_{timeframe}_{pair}"))
+    markup.add(types.InlineKeyboardButton("ðŸ  Bosh sahifa", callback_data="home"))
 
     bot.edit_message_text(
         msg,
@@ -254,7 +250,7 @@ def go_home(call):
     buttons = [types.InlineKeyboardButton(p, callback_data=f"pair_{p}") for p in PAIRS]
     markup.add(*buttons)
     bot.edit_message_text(
-        "💱 *Valyuta juftligini tanlang:*",
+        "ðŸ’± *Valyuta juftligini tanlang:*",
         call.message.chat.id,
         call.message.message_id,
         parse_mode="Markdown",
