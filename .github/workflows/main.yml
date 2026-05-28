@@ -1,0 +1,30 @@
+name: Pocket Option Bot
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Python o'rnatish
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Kutubxonalar o'rnatish
+      run: pip install pyTelegramBotAPI yfinance pandas requests
+
+    - name: Botni ishga tushirish
+      env:
+        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        TWELVE_API_KEY: ${{ secrets.TWELVE_API_KEY }}
+      run: timeout 200 python main.py || true
